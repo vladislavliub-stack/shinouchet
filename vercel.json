@@ -1,0 +1,1 @@
+{"buildCommand":"node build.mjs","outputDirectory":"dist","installCommand":"","functions":{"api/transcribe.js":{"maxDuration":60}},"headers":[{"source":"/sw.js","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}

@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFile,access} from 'node:fs/promises';
+test('PWA precache references only shipped files',async()=>{const root=new URL('../dist/',import.meta.url);const sw=await readFile(new URL('sw.js',root),'utf8');const assets=JSON.parse(sw.match(/ASSETS=(\[[^;]+\])/)[1]);assert.ok(!assets.includes('./src/voice.js'));for(const asset of assets){if(asset==='./')continue;await access(new URL(asset,root));}assert.ok(assets.includes('./src/cloud-asr.js'));});

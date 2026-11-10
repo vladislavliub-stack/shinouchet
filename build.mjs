@@ -1,0 +1,14 @@
+import {mkdir,readFile,writeFile,cp} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {deflateSync} from 'node:zlib';
+await mkdir('dist',{recursive:true});await cp('src','dist/src',{recursive:true});await cp('public','dist',{recursive:true});await cp('index.html','dist/index.html');await cp('api','dist/api',{recursive:true});await cp('server','dist/server',{recursive:true});await cp('vercel.json','dist/vercel.json');await writeFile('dist/package.json',JSON.stringify({type:'module'}));
+const crc=b=>{let c=0xffffffff;for(const x of b){c^=x;for(let n=0;n<8;n++)c=(c>>>1)^((c&1)?0xedb88320:0);}return(c^0xffffffff)>>>0;};
+function png(size){const chunk=(name,data)=>{const type=Buffer.from(name),length=Buffer.alloc(4),sum=Buffer.alloc(4);length.writeUInt32BE(data.length);sum.writeUInt32BE(crc(Buffer.concat([type,data])));return Buffer.concat([length,type,data,sum]);};const raw=Buffer.alloc((size*4+1)*size);for(let y=0;y<size;y++)for(let x=0;x<size;x++){const dx=(x-size/2)/size,dy=(y-size/2)/size,r=Math.hypot(dx,dy),ring=(r>.26&&r<.32)||(r>.12&&r<.145),spoke=r<.13&&(Math.abs(dx)<.012||Math.abs(dy)<.012);const i=y*(size*4+1)+1+x*4;raw[i]=ring||spoke?245:24;raw[i+1]=ring||spoke?250:93;raw[i+2]=ring||spoke?246:70;raw[i+3]=255;}const head=Buffer.alloc(13);head.writeUInt32BE(size);head.writeUInt32BE(size,4);head[8]=8;head[9]=6;return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',head),chunk('IDAT',deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]);}
+for(const size of [192,512])await writeFile(`dist/icon-${size}.png`,png(size));
+const paths=['index.html','src/app.js','src/core.js','src/cloud.js','src/permissions.js','src/cloud-asr.js','src/xlsx.js','src/style.css','manifest.webmanifest','icon-192.png','icon-512.png'];
+const hash=createHash('sha256');for(const p of paths)hash.update(await readFile('dist/'+p));const version='shinouchet-'+hash.digest('hex').slice(0,12);
+await writeFile('dist/sw.js',`const CACHE=${JSON.stringify(version)},ASSETS=${JSON.stringify(['./',...paths.map(p=>'./'+p)])};
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('shinouchet-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
+self.addEventListener('fetch',e=>{const url=new URL(e.request.url);if(e.request.method!=='GET'||url.origin!==location.origin||url.pathname.startsWith('/api/'))return;if(e.request.mode==='navigate'){e.respondWith(caches.match('./index.html').then(r=>r||fetch(e.request)));return;}e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`);
+console.log(`Build OK: dist/ (${version}), offline shell + 192/512 PNG icons`);
