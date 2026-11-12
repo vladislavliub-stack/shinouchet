@@ -21,7 +21,8 @@ $steps = @(
 )
 foreach ($step in $steps) {
     $path = Join-Path $folder $step.Name
-    & supabase db dump --db-url $env:SUPABASE_DB_URL -f $path @($step.Args)
+    $extraArgs = $step.Args
+    & supabase db dump --db-url $env:SUPABASE_DB_URL -f $path @extraArgs
     if ($LASTEXITCODE -ne 0) { throw "Ошибка резервного копирования: $($step.Name)" }
     if (-not (Test-Path $path)) { throw "Файл не создан: $path" }
 }
