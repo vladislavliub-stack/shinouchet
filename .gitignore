@@ -6,3 +6,8 @@ node_modules/
 *.log
 *.zip
 *.xlsx
+
+# Private migration dumps: never publish customer data
+migration/private-backup-*/
+migration/*.dump
+migration/*.backup
