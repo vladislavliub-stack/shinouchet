@@ -1,0 +1,28 @@
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','98f3a667-bca0-4bb6-9f2b-da011ee69ceb',true);
+do $$ declare r public.work_visits; fixture uuid:=gen_random_uuid(); begin
+ r=public.work_save(fixture,0,'К565ОО','["Проверка утиля"]','Тест с откатом',now(),true);
+ r=public.work_action(r.id,r.version,'approve','Влад согласовал');
+ if r.status<>'approved' or r.reviewed_by<>auth.uid() or r.review_comment<>'Влад согласовал' or r.history->-1->>'by'<>'Vlad' then raise exception 'VLAD APPROVAL AUDIT FAILED'; end if;
+ begin perform public.work_action(r.id,1,'reject','Конфликт'); raise exception 'STALE REVIEW ALLOWED'; exception when serialization_failure then null; end;
+ r=public.work_action(r.id,r.version,'reject','Влад отклонил');
+ if r.status<>'rejected' or r.review_comment<>'Влад отклонил' then raise exception 'VLAD REJECTION FAILED'; end if;
+ r=public.work_comment(r.id,r.version,'Отдельный комментарий Влада');
+ if r.status<>'rejected' or r.comments->-1->>'by'<>'Vlad' then raise exception 'COMMENT CHANGED DECISION'; end if;
+ perform set_config('request.jwt.claim.sub','5932f3b8-6300-4a29-a7a8-ce002e8ddf31',true);
+ r=public.work_action(r.id,r.version,'approve','Ольга согласовала');
+ if r.status<>'approved' or r.reviewed_by<>auth.uid() then raise exception 'OLGA REVIEW BROKEN'; end if;
+ perform set_config('request.jwt.claim.sub','98f3a667-bca0-4bb6-9f2b-da011ee69ceb',true);
+ r=public.work_save(r.id,r.version,r.plate,r.operations,'Исправлено',r.visited_at,true);
+ if r.status<>'pending' or r.reviewed_by is not null or jsonb_array_length(r.comments)<>1 then raise exception 'RESET OR COMMENTS BROKEN'; end if;
+ r=public.work_action(r.id,r.version,'delete','');
+ begin perform public.work_action(r.id,r.version,'approve',''); raise exception 'DELETED REVIEW ALLOWED'; exception when invalid_parameter_value then null; end;
+ r=public.work_action(r.id,r.version,'restore','');
+ r=public.work_save(r.id,r.version,r.plate,r.operations,r.note,r.visited_at,false);
+ begin perform public.work_action(r.id,r.version,'reject',''); raise exception 'REGULAR REVIEW ALLOWED'; exception when invalid_parameter_value then null; end;
+ perform set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000099',true);
+ begin perform public.work_action(r.id,r.version,'approve',''); raise exception 'OUTSIDER REVIEW ALLOWED'; exception when insufficient_privilege then null; end;
+end $$;
+rollback;
+select 'PASS: Vlad own approve/reject, audit, comment, Olga review, version conflicts, edit reset, deleted/regular/outsider denial; fixtures rolled back' as verification;

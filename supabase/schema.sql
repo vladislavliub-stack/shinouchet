@@ -116,7 +116,7 @@ begin
    version=version+1,history=history||jsonb_build_array(event) where id=p_id returning * into result;
  else
   if old.deleted_at is not null or not old.disposal then raise exception 'Запись не требует проверки' using errcode='22023'; end if;
-  if old.created_by=actor then raise exception 'Свою запись согласовать нельзя' using errcode='42501'; end if;
+  if old.created_by=actor and actor<>'98f3a667-bca0-4bb6-9f2b-da011ee69ceb'::uuid then raise exception 'Свою запись согласовать нельзя' using errcode='42501'; end if;
   event=jsonb_build_object('at',now(),'by',actor_name,'field','status','old',old.status,'new',case when p_action='approve' then 'approved' else 'rejected' end,'comment',p_comment);
   update public.work_visits set status=case when p_action='approve' then 'approved' else 'rejected' end,
    reviewed_by=actor,reviewed_at=now(),review_comment=p_comment,version=version+1,

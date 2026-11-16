@@ -5,7 +5,6 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','98f3a667-bca0-4bb6-9f2b-da011ee69ceb',true);
 select public.work_save('10000000-0000-4000-8000-000000000001',0,'К565ОО','["Замена колёс","Балансировка"]','Проверка',now(),true);
 do $$ begin
- begin perform public.work_action('10000000-0000-4000-8000-000000000001',1,'approve',''); raise exception 'SELF REVIEW ALLOWED'; exception when insufficient_privilege then null; end;
  begin update public.work_visits set note='bypass'; raise exception 'DIRECT WRITE ALLOWED'; exception when insufficient_privilege then null; end;
 end $$;
 select set_config('request.jwt.claim.sub','5932f3b8-6300-4a29-a7a8-ce002e8ddf31',true);
